@@ -1,6 +1,6 @@
 # Image Preprocessing and Tagging Service
 
-这是一个基于ViT（Vision Transformer）模型的图像标注服务，可以自动为图像生成相关标签和描述。
+这是一个基于WD14 Tagger（ViT-based）模型的图像标注服务，可以自动为图像生成相关标签和描述。该项目使用了SmilingWolf的wd-vit-tagger-v3模型，在此特别感谢。
 
 ## 功能特点
 
@@ -36,7 +36,7 @@ pip install flask onnxruntime numpy pillow
 
 模型文件较大，未直接包含在代码仓库中。请从以下链接下载模型文件：
 - [wd-vit-tagger-v3.onnx](https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/blob/main/model.onnx)
-- [wd-vit-tagger-v3.csv](https://huggingface.co/your-username/image-preprocessing/resolve/main/wd-vit-tagger-v3.csv)
+- [wd-vit-tagger-v3.csv](https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/blob/main/selected_tags.csv)
 
 下载后将文件放置在项目的 `models` 目录下。
 
