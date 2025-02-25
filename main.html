@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LORA图片预处理</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+
+        .upload-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 2rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #666;
+            background-color: #f8f8f8;
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background-color: #E8F5E9;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-text {
+            color: #666;
+            margin: 0;
+        }
+
+        #fileList {
+            margin-top: 1rem;
+            text-align: left;
+        }
+
+        .size-input {
+            margin: 1rem 0;
+            padding: 0.5rem;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .lora-tags-input {
+            margin: 1rem 0;
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+            min-height: 60px;
+            resize: vertical;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #666;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .process-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 1rem;
+            margin-right: 0.5rem;
+        }
+
+        .download-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 1rem;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .download-button.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .download-button:hover {
+            background-color: #1976D2;
+        }
+
+        .process-button:hover {
+            background-color: #45a049;
+        }
+
+        .preview-container {
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+
+        .folder-preview {
+            border: 1px solid #ddd;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .folder-info {
+            flex-grow: 1;
+        }
+
+        .folder-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .folder-stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .delete-folder {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .delete-folder:hover {
+            background-color: #c82333;
+        }
+
+        .preview-image {
+            max-width: 200px;
+            margin: 0.5rem;
+            border: 1px solid #ddd;
+        }
+
+        .progress-container {
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 0.5rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <h2>图片文件夹上传</h2>
+        <div class="upload-area" id="dropArea">
+            <input type="file" id="fileInput" webkitdirectory directory multiple>
+            <p class="upload-text">点击或拖拽文件夹到此处上传</p>
+        </div>
+        <div>
+            <label for="sizeInput" class="input-label">目标尺寸</label>
+            <input type="number" id="sizeInput" class="size-input" value="728" placeholder="目标尺寸">
+            <label for="loraTags" class="input-label">Lora 标签（每行一个标签）</label>
+            <textarea id="loraTags" class="lora-tags-input" placeholder="在此输入Lora标签，每行一个"></textarea>
+            <button id="processButton" class="process-button">处理图片</button>
+            <button id="downloadButton" class="download-button">下载图片</button>
+        </div>
+        <div id="fileList"></div>
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">处理进度: 0%</div>
+            <div class="probabilities-container" id="probabilitiesContainer">
+                <h3>所有标签概率值</h3>
+                <div class="probabilities-list" id="probabilitiesList"></div>
+            </div>
+            <style>
+                .probabilities-container {
+                    margin-top: 20px;
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    max-height: 300px;
+                    overflow-y: auto;
+                }
+                .probabilities-container h3 {
+                    margin-top: 0;
+                    margin-bottom: 10px;
+                    color: #333;
+                }
+                .probabilities-list {
+                    font-size: 14px;
+                    line-height: 1.5;
+                }
+                .probability-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 5px 0;
+                    border-bottom: 1px solid #eee;
+                }
+                .probability-item:last-child {
+                    border-bottom: none;
+                }
+                .probability-tag {
+                    flex: 1;
+                }
+                .probability-value {
+                    margin-left: 10px;
+                    color: #666;
+                }
+                .probability-category {
+                    margin-left: 10px;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                    background-color: #e9ecef;
+                }
+            </style>
+        </div>
+        <div id="previewContainer" class="preview-container" style="display: none;">
+            <h3>预览</h3>
+            <div id="previewArea"></div>
+        </div>
+    </div>
+
+    <script>
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+
+        // 点击上传区域触发文件选择
+        dropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 处理文件选择
+        fileInput.addEventListener('change', handleFiles);
+
+        // 拖拽相关事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // 拖拽效果
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('dragover');
+            });
+        });
+
+        // 处理拖放
+        dropArea.addEventListener('drop', (e) => {
+            const items = e.dataTransfer.items;
+            if (items) {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i].webkitGetAsEntry();
+                    if (item.isDirectory) {
+                        traverseDirectory(item);
+                    }
+                }
+            }
+        });
+
+        // 遍历目录
+        function traverseDirectory(directory) {
+            const reader = directory.createReader();
+            reader.readEntries((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isFile && isImageFile(entry.name)) {
+                        entry.file(file => {
+                            displayFile(file);
+                        });
+                    } else if (entry.isDirectory) {
+                        traverseDirectory(entry);
+                    }
+                });
+            });
+        }
+
+        // 处理选择的文件
+        function handleFiles() {
+            const files = Array.from(fileInput.files);
+            files.forEach(file => {
+                if (isImageFile(file.name)) {
+                    displayFile(file);
+                }
+            });
+        }
+
+        // 检查是否为图片文件
+        function isImageFile(filename) {
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+            return imageExtensions.some(ext => filename.toLowerCase().endsWith(ext));
+        }
+
+        // 显示文件信息
+        let fileCount = 0;
+        let currentFolder = null;
+
+        function displayFile(file) {
+            if (fileCount === 0) {
+                // 清空之前的预览
+                fileList.innerHTML = '';
+                
+                // 获取文件夹名称
+                const folderPath = file.webkitRelativePath;
+                currentFolder = folderPath.split('/')[0];
+                
+                // 创建文件夹预览元素
+                const folderPreview = document.createElement('div');
+                folderPreview.className = 'folder-preview';
+                
+                const folderInfo = document.createElement('div');
+                folderInfo.className = 'folder-info';
+                
+                const folderName = document.createElement('div');
+                folderName.className = 'folder-name';
+                folderName.textContent = currentFolder;
+                
+                const folderStats = document.createElement('div');
+                folderStats.className = 'folder-stats';
+                folderStats.id = 'folder-stats';
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-folder';
+                deleteButton.textContent = '删除文件夹';
+                deleteButton.onclick = clearUpload;
+                
+                folderInfo.appendChild(folderName);
+                folderInfo.appendChild(folderStats);
+                folderPreview.appendChild(folderInfo);
+                folderPreview.appendChild(deleteButton);
+                fileList.appendChild(folderPreview);
+            }
+            
+            fileCount++;
+            document.getElementById('folder-stats').textContent = `${fileCount} 个图片文件`;
+        }
+
+        function clearUpload() {
+            fileInput.value = '';
+            fileList.innerHTML = '';
+            previewArea.innerHTML = '';
+            previewContainer.style.display = 'none';
+            fileCount = 0;
+            currentFolder = null;
+            window.processedFiles = null;
+            document.getElementById('downloadButton').classList.remove('active');
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 处理图片
+        async function processImage(file, targetSize) {
+            return new Promise(async (resolve) => {
+                const img = new Image();
+                img.onload = async () => {
+                    // 创建画布
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // 设置画布大小为目标尺寸
+                    canvas.width = targetSize;
+                    canvas.height = targetSize;
+
+                    // 计算缩放比例
+                    const scale = Math.min(targetSize / img.width, targetSize / img.height);
+                    const newWidth = img.width * scale;
+                    const newHeight = img.height * scale;
+
+                    // 计算居中位置
+                    const x = (targetSize - newWidth) / 2;
+                    const y = (targetSize - newHeight) / 2;
+
+                    // 填充白色背景
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, targetSize, targetSize);
+
+                    // 绘制图片
+                    ctx.drawImage(img, x, y, newWidth, newHeight);
+
+                    // 转换为Blob
+                    canvas.toBlob(async (blob) => {
+                        const processedFile = new File([blob], file.name, { type: 'image/png' });
+                        
+                        // 调用后端API获取标签
+                        try {
+                            const formData = new FormData();
+                            formData.append('image', processedFile);
+                            
+                            const response = await fetch('/api/generate-tags', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            
+                            const data = await response.json();
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                            
+                            // 将标签和概率值添加到文件对象
+                            processedFile.tags = data.tags.tags
+                                .map(t => t.tag)
+                                .join('\n');
+                            processedFile.probabilities = data.tags.all_probabilities;
+                            
+                            resolve(processedFile);
+                        } catch (error) {
+                            console.error('Error generating tags:', error);
+                            processedFile.tags = '';
+                            processedFile.probabilities = [];
+                            resolve(processedFile);
+                        }
+                    }, 'image/png');
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // 处理所有图片
+        async function processAllImages() {
+            const targetSize = parseInt(document.getElementById('sizeInput').value) || 728;
+            const loraTags = document.getElementById('loraTags').value.trim();
+            const files = Array.from(fileInput.files).filter(file => isImageFile(file.name));
+            const previewArea = document.getElementById('previewArea');
+            const previewContainer = document.getElementById('previewContainer');
+            const downloadButton = document.getElementById('downloadButton');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            previewArea.innerHTML = '';
+            previewContainer.style.display = 'block';
+            progressContainer.style.display = 'block';
+            downloadButton.classList.remove('active');
+
+            // 添加文件总数显示
+            const totalFiles = document.createElement('p');
+            totalFiles.textContent = `总共 ${files.length} 个文件`;
+            previewArea.appendChild(totalFiles);
+
+            const processedFiles = [];
+            let processedCount = 0;
+            
+            // 只处理前三个文件的预览
+            const previewFiles = files.slice(0, 3);
+            for (const file of previewFiles) {
+                const processedFile = await processImage(file, targetSize);
+                // 添加用户输入的Lora标签
+                if (loraTags) {
+                    processedFile.tags = loraTags.split('\n')
+                        .map(tag => tag.trim())
+                        .filter(tag => tag !== '')
+                        .map(tag => tag.endsWith(',') ? tag : tag + ',')
+                        .join('\n') + '\n' + processedFile.tags;
+                }
+                processedFiles.push(processedFile);
+                processedCount++;
+
+                // 更新进度条
+                const progress = (processedCount / files.length) * 100;
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `处理进度: ${Math.round(progress)}%`;
+
+                // 创建预览容器
+                const previewContainer = document.createElement('div');
+                previewContainer.style.display = 'flex';
+                previewContainer.style.alignItems = 'flex-start';
+                previewContainer.style.marginBottom = '1rem';
+
+                // 显示预览图片
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(processedFile);
+                img.className = 'preview-image';
+
+                // 显示概率值
+                const probabilitiesList = document.getElementById('probabilitiesList');
+                if (processedFile.probabilities) {
+                    probabilitiesList.innerHTML = '';
+                    processedFile.probabilities.forEach(item => {
+                        const probabilityItem = document.createElement('div');
+                        probabilityItem.className = 'probability-item';
+                        probabilityItem.innerHTML = `
+                            <span class="probability-tag">${item.tag}</span>
+                            <span class="probability-value">${(item.probability * 100).toFixed(2)}%</span>
+                            <span class="probability-category">类别 ${item.category}</span>
+                        `;
+                        probabilitiesList.appendChild(probabilityItem);
+                    });
+                }
+
+                // 创建标签显示区域
+                const tagsContainer = document.createElement('div');
+                tagsContainer.style.marginLeft = '1rem';
+                tagsContainer.style.flex = '1';
+
+                const tagsTitle = document.createElement('h4');
+                tagsTitle.style.margin = '0 0 0.5rem 0';
+                tagsTitle.textContent = '图片标签：';
+
+                const tagsList = document.createElement('div');
+                tagsList.style.display = 'flex';
+                tagsList.style.flexWrap = 'wrap';
+                tagsList.style.gap = '0.5rem';
+
+                if (!processedFile.tags || processedFile.tags.trim() === '') {
+                    const nullTag = document.createElement('span');
+                    nullTag.style.background = '#f0f0f0';
+                    nullTag.style.padding = '0.25rem 0.5rem';
+                    nullTag.style.borderRadius = '4px';
+                    nullTag.style.fontSize = '0.9em';
+                    nullTag.style.color = '#666';
+                    nullTag.textContent = 'NULL';
+                    tagsList.appendChild(nullTag);
+                } else {
+                    // 处理标签字符串，确保每个标签都以逗号结尾
+                    const tags = processedFile.tags.split('\n').join(',').split(',').filter(tag => tag.trim() !== '');
+                    tags.forEach(tag => {
+                        const tagElement = document.createElement('span');
+                        tagElement.style.background = '#e0e0e0';
+                        tagElement.style.padding = '0.25rem 0.5rem';
+                        tagElement.style.borderRadius = '4px';
+                        tagElement.style.fontSize = '0.9em';
+                        // 移除标签末尾的逗号显示
+                        tagElement.textContent = tag.trim().replace(/,$/g, '');
+                        tagsList.appendChild(tagElement);
+                    });
+                }
+
+                tagsContainer.appendChild(tagsTitle);
+                tagsContainer.appendChild(tagsList);
+
+                previewContainer.appendChild(img);
+                previewContainer.appendChild(tagsContainer);
+                previewArea.appendChild(previewContainer);
+            }
+
+            // 如果文件数量超过3个，显示剩余数量
+            if (files.length > 3) {
+                const remainingFiles = document.createElement('p');
+                remainingFiles.textContent = `...还有 ${files.length - 3} 个文件未显示`;
+                previewArea.appendChild(remainingFiles);
+            }
+
+            // 继续处理所有文件
+            for (const file of files.slice(3)) {
+                const processedFile = await processImage(file, targetSize);
+                if (loraTags) {
+                    processedFile.tags = loraTags.split('\n')
+                        .map(tag => tag.trim())
+                        .filter(tag => tag !== '')
+                        .map(tag => tag.endsWith(',') ? tag : tag + ',')
+                        .join('\n') + '\n' + processedFile.tags;
+                }
+                processedFiles.push(processedFile);
+                processedCount++;
+
+                // 更新进度条
+                const progress = (processedCount / files.length) * 100;
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `处理进度: ${Math.round(progress)}%`;
+            }
+
+            // 处理完成后隐藏进度条
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+            }, 1000);
+
+            // 激活下载按钮
+            downloadButton.classList.add('active');
+
+            // 存储处理后的文件以供下载
+            window.processedFiles = processedFiles;
+        }
+
+
+
+        // 添加下载按钮事件监听
+        document.getElementById('downloadButton').addEventListener('click', async () => {
+            if (!window.processedFiles) {
+                console.log('错误: processedFiles 为空');
+                return;
+            }
+            console.log('开始下载流程，文件数量:', window.processedFiles.length);
+            console.log('处理的文件列表:', window.processedFiles.map(f => f.name));
+            try {
+                const progressText = document.getElementById('progressText');
+                const progressContainer = document.getElementById('progressContainer');
+                const progressFill = document.getElementById('progressFill');
+                
+                // 显示进度条
+                progressContainer.style.display = 'block';
+                progressText.textContent = '正在准备下载...';
+                progressFill.style.width = '0%';
+
+                const zip = new JSZip();
+                const folder = zip.folder('processed_images');
+                const totalFiles = window.processedFiles.length;
+                let processedCount = 0;
+
+                // 使用Promise.all等待所有文件处理完成
+                await Promise.all(window.processedFiles.map(async (file) => {
+                    try {
+                        console.log('处理文件:', file.name);
+                        // 将File对象转换为ArrayBuffer
+                        const arrayBuffer = await file.arrayBuffer();
+                        console.log('文件转换为ArrayBuffer成功:', file.name);
+                        const fileName = file.name.replace(/\.[^/.]+$/, '');
+                        folder.file(`${fileName}.png`, arrayBuffer);
+                        
+                        // 添加标签文件
+                        if (file.tags) {
+                            folder.file(`${fileName}.txt`, file.tags);
+                            console.log('成功添加标签文件:', fileName + '.txt');
+                        }
+                        
+                        console.log('成功添加文件到压缩包:', fileName + '.png');
+                        
+                        // 更新进度
+                        processedCount++;
+                        const progress = (processedCount / totalFiles) * 100;
+                        progressFill.style.width = `${progress}%`;
+                        progressText.textContent = `打包进度: ${Math.round(progress)}%`;
+                    } catch (error) {
+                        console.error('处理文件时出错:', file.name, error);
+                        throw error;
+                    }
+                }));
+
+                console.log('所有文件处理完成，开始生成zip');
+                progressText.textContent = '正在生成压缩包...';
+                const content = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+                console.log('zip生成成功，大小:', content.size, 'bytes');
+                console.log('压缩包内文件数量:', Object.keys(zip.files).length);
+
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(content);
+                downloadLink.download = 'processed_images.zip';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                // 清理URL对象
+                URL.revokeObjectURL(downloadLink.href);
+                console.log('下载链接已创建并点击');
+                
+                // 隐藏进度条
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressText.textContent = '处理进度: 0%';
+                    progressFill.style.width = '0%';
+                }, 1000);
+
+            } catch (error) {
+                console.error('下载过程中出错:', error);
+                alert('下载过程中出现错误，请重试');
+                progressContainer.style.display = 'none';
+            }
+        });
+
+        // 添加处理按钮事件监听
+        document.getElementById('processButton').addEventListener('click', processAllImages);
+    </script>
+</body>
+</html>
