@@ -210,6 +210,51 @@
         <div>
             <label for="sizeInput" class="input-label">目标尺寸</label>
             <input type="number" id="sizeInput" class="size-input" value="728" placeholder="目标尺寸">
+            <div class="threshold-container">
+                <div class="threshold-group">
+                    <label for="threshold" class="input-label">普通标签阈值</label>
+                    <div class="threshold-controls">
+                        <input type="range" id="threshold" class="threshold-input" min="0" max="1" step="0.05" value="0.35">
+                        <input type="number" id="thresholdNumber" class="threshold-number" min="0" max="1" step="0.05" value="0.35">
+                    </div>
+                </div>
+                <div class="threshold-group">
+                    <label for="characterThreshold" class="input-label">角色标签阈值</label>
+                    <div class="threshold-controls">
+                        <input type="range" id="characterThreshold" class="threshold-input" min="0" max="1" step="0.05" value="0.85">
+                        <input type="number" id="characterThresholdNumber" class="threshold-number" min="0" max="1" step="0.05" value="0.85">
+                    </div>
+                </div>
+            </div>
+            <style>
+                .threshold-container {
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    background-color: #f8f9fa;
+                }
+                .threshold-group {
+                    margin-bottom: 15px;
+                }
+                .threshold-group:last-child {
+                    margin-bottom: 0;
+                }
+                .threshold-controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .threshold-input {
+                    flex: 1;
+                }
+                .threshold-number {
+                    width: 70px;
+                    padding: 5px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                }
+            </style>
             <label for="loraTags" class="input-label">Lora 标签（每行一个标签）</label>
             <textarea id="loraTags" class="lora-tags-input" placeholder="在此输入Lora标签，每行一个"></textarea>
             <button id="processButton" class="process-button">处理图片</button>
@@ -457,6 +502,14 @@
                             const formData = new FormData();
                             formData.append('image', processedFile);
                             
+                            // 获取当前阈值
+                            const threshold = document.getElementById('threshold').value;
+                            const characterThreshold = document.getElementById('characterThreshold').value;
+                            
+                            // 添加阈值参数到formData
+                            formData.append('threshold', threshold);
+                            formData.append('character_threshold', characterThreshold);
+                            
                             const response = await fetch('/api/generate-tags', {
                                 method: 'POST',
                                 body: formData
@@ -489,6 +542,36 @@
                 img.src = URL.createObjectURL(file);
             });
         }
+
+        // 处理阈值滑动条和数字输入框的同步
+        const threshold = document.getElementById('threshold');
+        const thresholdNumber = document.getElementById('thresholdNumber');
+        const characterThreshold = document.getElementById('characterThreshold');
+        const characterThresholdNumber = document.getElementById('characterThresholdNumber');
+
+        // 普通标签阈值的双向绑定
+        threshold.addEventListener('input', (e) => {
+            thresholdNumber.value = e.target.value;
+        });
+
+        thresholdNumber.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            if (value >= 0 && value <= 1) {
+                threshold.value = value;
+            }
+        });
+
+        // 角色标签阈值的双向绑定
+        characterThreshold.addEventListener('input', (e) => {
+            characterThresholdNumber.value = e.target.value;
+        });
+
+        characterThresholdNumber.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            if (value >= 0 && value <= 1) {
+                characterThreshold.value = value;
+            }
+        });
 
         // 处理所有图片
         async function processAllImages() {

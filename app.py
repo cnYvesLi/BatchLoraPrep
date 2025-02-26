@@ -146,7 +146,10 @@ def generate_tags():
     try:
         image_file = request.files['image']
         image = Image.open(io.BytesIO(image_file.read()))
-        tags = tagger.generate_tags(image)
+        # 从请求中获取阈值参数，如果没有提供则使用默认值
+        threshold = float(request.form.get('threshold', 0.35))
+        character_threshold = float(request.form.get('character_threshold', 0.85))
+        tags = tagger.generate_tags(image, threshold=threshold, character_threshold=character_threshold)
         return jsonify({'tags': tags})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
