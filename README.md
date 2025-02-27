@@ -15,7 +15,7 @@
 
 1. 克隆项目到本地：
 ```bash
-git clone https://github.com/your-username/image-preprocessing.git
+git clone https://github.com/cnYvesLi/BatchLoraPrep.git
 cd image-preprocessing
 ```
 
