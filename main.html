@@ -10,10 +10,31 @@
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
+            align-items: flex-start;
+            min-height: 100vh;
             margin: 0;
+            padding: 2rem 0;
             background-color: #f5f5f5;
+            box-sizing: border-box;
+        }
+
+        .success-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .success-toast.show {
+            opacity: 1;
         }
 
         .upload-container {
@@ -22,6 +43,9 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             text-align: center;
+            max-height: 90vh;
+            overflow-y: auto;
+            margin: 0 1rem;
         }
 
         .upload-area {
@@ -123,11 +147,12 @@
 
         .preview-container {
             margin-top: 1rem;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
             border: 1px solid #ccc;
             padding: 1rem;
             border-radius: 4px;
+            background-color: #fff;
         }
 
         .folder-preview {
@@ -209,7 +234,7 @@
         </div>
         <div>
             <label for="sizeInput" class="input-label">目标尺寸</label>
-            <input type="number" id="sizeInput" class="size-input" value="728" placeholder="目标尺寸">
+            <input type="number" id="sizeInput" class="size-input" value="768" placeholder="目标尺寸">
             <div class="threshold-container">
                 <div class="threshold-group">
                     <label for="threshold" class="input-label">普通标签阈值</label>
@@ -267,17 +292,42 @@
             </div>
             <div class="progress-text" id="progressText">处理进度: 0%</div>
             <div class="probabilities-container" id="probabilitiesContainer">
-                <h3>所有标签概率值</h3>
-                <div class="probabilities-list" id="probabilitiesList"></div>
+                <div class="toggle-button" id="toggleProbabilities">显示/隐藏标签概率</div>
+                <div class="probabilities-content" id="probabilitiesContent">
+                    <h3>所有标签概率值</h3>
+                    <div class="probabilities-list" id="probabilitiesList"></div>
+                </div>
             </div>
             <style>
                 .probabilities-container {
                     margin-top: 20px;
+                }
+                .toggle-button {
+                    padding: 8px 15px;
+                    background-color: #f0f0f0;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    display: inline-block;
+                    margin-bottom: 10px;
+                    transition: background-color 0.3s;
+                }
+                .toggle-button:hover {
+                    background-color: #e0e0e0;
+                }
+                .probabilities-content {
                     padding: 15px;
                     border: 1px solid #ddd;
                     border-radius: 5px;
                     max-height: 300px;
                     overflow-y: auto;
+                    transition: max-height 0.3s ease-out;
+                }
+                .probabilities-content.collapsed {
+                    max-height: 0;
+                    padding: 0;
+                    overflow: hidden;
+                    border: none;
                 }
                 .probabilities-container h3 {
                     margin-top: 0;
@@ -311,13 +361,91 @@
                     font-size: 12px;
                     background-color: #e9ecef;
                 }
+                .context-menu {
+                    position: fixed;
+                    z-index: 1000;
+                    background: white;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    padding: 5px 0;
+                }
+                .context-menu-item {
+                    padding: 8px 12px;
+                    cursor: pointer;
+                    color: #333;
+                }
+                .context-menu-item:hover {
+                    background-color: #f0f0f0;
+                }
+                .tag-element {
+                    cursor: context-menu;
+                }
             </style>
         </div>
         <div id="previewContainer" class="preview-container" style="display: none;">
             <h3>预览</h3>
+            <div class="quick-delete-mode">
+                <input type="checkbox" id="quickDeleteMode">
+                <label for="quickDeleteMode">快速删除模式（左键直接删除标签）</label>
+            </div>
+            <div class="tag-search-container">
+                <input type="text" id="tagSearchInput" placeholder="搜索标签..." class="tag-search-input">
+                <div id="tagSearchResults" class="tag-search-results"></div>
+            </div>
             <div id="previewArea"></div>
         </div>
     </div>
+
+    <style>
+        .quick-delete-mode {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tag-search-container {
+            margin: 10px 0;
+        }
+        .tag-search-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .tag-search-results {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .tag-search-result {
+            background: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+        }
+        .tag-search-result:hover {
+            background: #d0d0d0;
+        }
+        .tag-search-result.selected {
+            background: #4CAF50;
+            color: white;
+        }
+        .delete-button:hover {
+            background-color: #ff0000 !important;
+        }
+        .quick-delete-mode label {
+            cursor: pointer;
+            user-select: none;
+        }
+        .quick-delete-mode input[type="checkbox"] {
+            cursor: pointer;
+        }
+    </style>
 
     <script>
         const dropArea = document.getElementById('dropArea');
@@ -385,9 +513,27 @@
         }
 
         // 处理选择的文件
-        function handleFiles() {
-            const files = Array.from(fileInput.files);
-            files.forEach(file => {
+        function handleFiles(e) {
+            const files = Array.from(e.target.files || e.dataTransfer.files);
+            if (files.length === 0) return;
+
+            // 显示成功提示
+            const toast = document.createElement('div');
+            toast.className = 'success-toast';
+            toast.textContent = '文件上传成功';
+            document.body.appendChild(toast);
+            
+            // 触发动画
+            setTimeout(() => toast.classList.add('show'), 100);
+            
+            // 3秒后移除提示
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, 1500);
+
+            // 处理所有图片文件
+            Array.from(fileInput.files).forEach(file => {
                 if (isImageFile(file.name)) {
                     displayFile(file);
                 }
@@ -527,7 +673,7 @@
                             // 将标签和概率值添加到文件对象
                             processedFile.tags = data.tags.tags
                                 .map(t => t.tag)
-                                .join('\n');
+                                .join(' ');
                             processedFile.probabilities = data.tags.all_probabilities;
                             
                             resolve(processedFile);
@@ -575,7 +721,7 @@
 
         // 处理所有图片
         async function processAllImages() {
-            const targetSize = parseInt(document.getElementById('sizeInput').value) || 728;
+            const targetSize = parseInt(document.getElementById('sizeInput').value) || 768;
             const loraTags = document.getElementById('loraTags').value.trim();
             const files = Array.from(fileInput.files).filter(file => isImageFile(file.name));
             const previewArea = document.getElementById('previewArea');
@@ -677,6 +823,67 @@
                         tagElement.style.padding = '0.25rem 0.5rem';
                         tagElement.style.borderRadius = '4px';
                         tagElement.style.fontSize = '0.9em';
+                        tagElement.className = 'tag-element';
+                        
+                        tagElement.addEventListener('click', function(e) {
+                            const quickDeleteMode = document.getElementById('quickDeleteMode').checked;
+                            if (quickDeleteMode) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                tagElement.remove();
+                                
+                                // 更新文件的标签
+                                const tags = Array.from(tagsList.querySelectorAll('.tag-element'))
+                                    .map(tag => tag.textContent)
+                                    .join(',');
+                                processedFile.tags = tags;
+                            }
+                        });
+                        
+                        // 添加右键菜单事件
+                        tagElement.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            
+                            // 移除已存在的上下文菜单
+                            const existingMenu = document.querySelector('.context-menu');
+                            if (existingMenu) {
+                                existingMenu.remove();
+                            }
+                            
+                            // 创建上下文菜单
+                            const contextMenu = document.createElement('div');
+                            contextMenu.className = 'context-menu';
+                            
+                            // 创建删除选项
+                            const deleteItem = document.createElement('div');
+                            deleteItem.className = 'context-menu-item';
+                            deleteItem.textContent = '删除标签';
+                            deleteItem.onclick = () => {
+                                tagElement.remove();
+                                contextMenu.remove();
+                                
+                                // 更新文件的标签
+                                const tags = Array.from(tagsList.querySelectorAll('.tag-element'))
+                                    .map(tag => tag.textContent)
+                                    .join(',');
+                                processedFile.tags = tags;
+                            };
+                            
+                            contextMenu.appendChild(deleteItem);
+                            document.body.appendChild(contextMenu);
+                            
+                            // 设置菜单位置
+                            contextMenu.style.left = e.pageX + 'px';
+                            contextMenu.style.top = e.pageY + 'px';
+                        });
+                        
+                        // 点击页面其他地方时关闭菜单
+                        document.addEventListener('click', function() {
+                            const contextMenu = document.querySelector('.context-menu');
+                            if (contextMenu) {
+                                contextMenu.remove();
+                            }
+                        });
                         // 移除标签末尾的逗号显示
                         tagElement.textContent = tag.trim().replace(/,$/g, '');
                         tagsList.appendChild(tagElement);
@@ -691,11 +898,159 @@
                 previewArea.appendChild(previewContainer);
             }
 
-            // 如果文件数量超过3个，显示剩余数量
+            // 如果文件数量超过3个，添加显示更多按钮
             if (files.length > 3) {
-                const remainingFiles = document.createElement('p');
-                remainingFiles.textContent = `...还有 ${files.length - 3} 个文件未显示`;
-                previewArea.appendChild(remainingFiles);
+                const showMoreContainer = document.createElement('div');
+                showMoreContainer.style.textAlign = 'center';
+                showMoreContainer.style.marginTop = '1rem';
+                
+                const showMoreButton = document.createElement('button');
+                showMoreButton.className = 'process-button';
+                showMoreButton.textContent = '显示更多文件';
+                showMoreButton.style.margin = '0';
+                
+                const hiddenFiles = files.slice(3);
+                let isExpanded = false;
+                
+                showMoreButton.addEventListener('click', async () => {
+                    if (!isExpanded) {
+                        // 显示所有剩余文件
+                        for (const file of hiddenFiles) {
+                            const processedFile = processedFiles.find(pf => pf.name === file.name);
+                            if (processedFile) {
+                                // 创建预览容器
+                                const previewContainer = document.createElement('div');
+                                previewContainer.style.display = 'flex';
+                                previewContainer.style.alignItems = 'flex-start';
+                                previewContainer.style.marginBottom = '1rem';
+                                previewContainer.className = 'hidden-preview';
+
+                                // 显示预览图片
+                                const img = document.createElement('img');
+                                img.src = URL.createObjectURL(processedFile);
+                                img.className = 'preview-image';
+
+                                // 创建标签显示区域
+                                const tagsContainer = document.createElement('div');
+                                tagsContainer.style.marginLeft = '1rem';
+                                tagsContainer.style.flex = '1';
+
+                                const tagsTitle = document.createElement('h4');
+                                tagsTitle.style.margin = '0 0 0.5rem 0';
+                                tagsTitle.textContent = '图片标签：';
+
+                                const tagsList = document.createElement('div');
+                                tagsList.style.display = 'flex';
+                                tagsList.style.flexWrap = 'wrap';
+                                tagsList.style.gap = '0.5rem';
+
+                                if (!processedFile.tags || processedFile.tags.trim() === '') {
+                                    const nullTag = document.createElement('span');
+                                    nullTag.style.background = '#f0f0f0';
+                                    nullTag.style.padding = '0.25rem 0.5rem';
+                                    nullTag.style.borderRadius = '4px';
+                                    nullTag.style.fontSize = '0.9em';
+                                    nullTag.style.color = '#666';
+                                    nullTag.textContent = 'NULL';
+                                    tagsList.appendChild(nullTag);
+                                } else {
+                                    const tags = processedFile.tags.split('\n').join(',').split(',').filter(tag => tag.trim() !== '');
+                                    tags.forEach(tag => {
+                                        const tagElement = document.createElement('span');
+                                        tagElement.style.background = '#e0e0e0';
+                                        tagElement.style.padding = '0.25rem 0.5rem';
+                                        tagElement.style.borderRadius = '4px';
+                                        tagElement.style.fontSize = '0.9em';
+                                        tagElement.className = 'tag-element';
+                                        
+                                        tagElement.addEventListener('click', function(e) {
+                                            const quickDeleteMode = document.getElementById('quickDeleteMode').checked;
+                                            if (quickDeleteMode) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                tagElement.remove();
+                                                
+                                                // 更新文件的标签
+                                                const tags = Array.from(tagsList.querySelectorAll('.tag-element'))
+                                                    .map(tag => tag.textContent)
+                                                    .join(',');
+                                                processedFile.tags = tags;
+                                            }
+                                        });
+                                        
+                                        // 添加右键菜单事件
+                                        tagElement.addEventListener('contextmenu', function(e) {
+                                            e.preventDefault();
+                                            
+                                            // 移除已存在的上下文菜单
+                                            const existingMenu = document.querySelector('.context-menu');
+                                            if (existingMenu) {
+                                                existingMenu.remove();
+                                            }
+                                            
+                                            // 创建上下文菜单
+                                            const contextMenu = document.createElement('div');
+                                            contextMenu.className = 'context-menu';
+                                            
+                                            // 创建删除选项
+                                            const deleteItem = document.createElement('div');
+                                            deleteItem.className = 'context-menu-item';
+                                            deleteItem.textContent = '删除标签';
+                                            deleteItem.onclick = () => {
+                                                tagElement.remove();
+                                                contextMenu.remove();
+                                                
+                                                // 更新文件的标签
+                                                const tags = Array.from(tagsList.querySelectorAll('.tag-element'))
+                                                    .map(tag => tag.textContent)
+                                                    .join(',');
+                                                processedFile.tags = tags;
+                                            };
+                                            
+                                            contextMenu.appendChild(deleteItem);
+                                            document.body.appendChild(contextMenu);
+                                            
+                                            // 设置菜单位置
+                                            contextMenu.style.left = e.pageX + 'px';
+                                            contextMenu.style.top = e.pageY + 'px';
+                                        });
+                                        
+                                        // 点击页面其他地方时关闭菜单
+                                        document.addEventListener('click', function() {
+                                            const contextMenu = document.querySelector('.context-menu');
+                                            if (contextMenu) {
+                                                contextMenu.remove();
+                                            }
+                                        });
+                                        
+                                        tagElement.textContent = tag.trim().replace(/,$/g, '');
+                                        tagsList.appendChild(tagElement);
+                                    });
+                                }
+
+                                tagsContainer.appendChild(tagsTitle);
+                                tagsContainer.appendChild(tagsList);
+
+                                previewContainer.appendChild(img);
+                                previewContainer.appendChild(tagsContainer);
+                                showMoreContainer.parentNode.insertBefore(previewContainer, showMoreContainer);
+                            }
+                        }
+                        showMoreButton.textContent = '隐藏文件';
+                        isExpanded = true;
+                    } else {
+                        // 隐藏所有额外的预览
+                        const hiddenPreviews = document.getElementsByClassName('hidden-preview');
+                        while (hiddenPreviews.length > 0) {
+                            hiddenPreviews[0].remove();
+                        }
+                        showMoreButton.textContent = '显示更多文件';
+                        isExpanded = false;
+                    }
+                });
+                
+                showMoreContainer.appendChild(showMoreButton);
+                previewArea.appendChild(showMoreContainer);
             }
 
             // 继续处理所有文件
@@ -730,6 +1085,14 @@
         }
 
 
+
+        // 添加概率显示的折叠功能
+        const toggleButton = document.getElementById('toggleProbabilities');
+        const probabilitiesContent = document.getElementById('probabilitiesContent');
+        
+        toggleButton.addEventListener('click', () => {
+            probabilitiesContent.classList.toggle('collapsed');
+        });
 
         // 添加下载按钮事件监听
         document.getElementById('downloadButton').addEventListener('click', async () => {
@@ -820,6 +1183,122 @@
 
         // 添加处理按钮事件监听
         document.getElementById('processButton').addEventListener('click', processAllImages);
+
+        // 标签搜索功能
+        const tagSearchInput = document.getElementById('tagSearchInput');
+        const tagSearchResults = document.getElementById('tagSearchResults');
+
+        tagSearchInput.addEventListener('input', () => {
+            const searchTerm = tagSearchInput.value.toLowerCase();
+            tagSearchResults.innerHTML = '';
+
+            if (searchTerm.length === 0) {
+                return;
+            }
+
+            // 获取所有已处理文件的标签（包括隐藏的文件）
+            const allTags = new Set();
+            window.processedFiles.forEach(file => {
+                if (file.tags) {
+                    const fileTags = file.tags.split('\n').join(',').split(',').filter(tag => tag.trim() !== '');
+                    fileTags.forEach(tag => allTags.add(tag.trim()));
+                }
+            });
+
+            // 搜索相似标签
+            const similarTags = Array.from(allTags).filter(tag =>
+                tag.toLowerCase().includes(searchTerm)
+            );
+
+            // 显示搜索结果
+            similarTags.forEach(tag => {
+                const tagElement = document.createElement('div');
+                tagElement.className = 'tag-search-result';
+                tagElement.textContent = tag;
+                
+                // 添加点击事件处理
+                tagElement.addEventListener('click', () => {
+                    // 切换选中状态
+                    tagElement.classList.toggle('selected');
+                    
+                    // 创建或更新删除按钮
+                    let deleteButton = document.querySelector('#tagDeleteButton');
+                    if (document.querySelector('.tag-search-result.selected')) {
+                        if (!deleteButton) {
+                            deleteButton = document.createElement('button');
+                            deleteButton.id = 'tagDeleteButton';
+                            deleteButton.className = 'delete-button';
+                            deleteButton.textContent = '删除选中标签';
+                            deleteButton.style.marginTop = '10px';
+                            deleteButton.style.padding = '8px 16px';
+                            deleteButton.style.backgroundColor = '#ff4444';
+                            deleteButton.style.color = 'white';
+                            deleteButton.style.border = 'none';
+                            deleteButton.style.borderRadius = '4px';
+                            deleteButton.style.cursor = 'pointer';
+                            tagSearchResults.appendChild(deleteButton);
+                            
+                            deleteButton.addEventListener('click', () => {
+                                const selectedTags = Array.from(document.querySelectorAll('.tag-search-result.selected'))
+                                    .map(el => el.textContent);
+                                
+                                // 更新所有已处理文件的标签（包括隐藏的文件）
+                                window.processedFiles.forEach(file => {
+                                    if (file.tags) {
+                                        const currentTags = file.tags.split('\n').join(',').split(',').filter(tag => tag.trim() !== '');
+                                        const updatedTags = currentTags.filter(tag =>
+                                            !selectedTags.some(selectedTag =>
+                                                tag.toLowerCase().includes(selectedTag.toLowerCase())
+                                            )
+                                        ).join(',');
+                                        file.tags = updatedTags;
+                                    }
+                                });
+
+                                // 更新显示的标签元素
+                                document.querySelectorAll('.preview-container, .hidden-preview').forEach(container => {
+                                    const tagElements = container.querySelectorAll('.tag-element');
+                                    tagElements.forEach(tagEl => {
+                                        const tagText = tagEl.textContent.trim();
+                                        if (selectedTags.some(selectedTag => 
+                                            tagText.toLowerCase().includes(selectedTag.toLowerCase())
+                                        )) {
+                                            tagEl.remove();
+                                        }
+                                    });
+                                });
+
+                                // 从搜索结果中移除已删除的标签
+                                selectedTags.forEach(selectedTag => {
+                                    const searchResults = document.querySelectorAll('.tag-search-result');
+                                    searchResults.forEach(result => {
+                                        if (result.textContent.toLowerCase().includes(selectedTag.toLowerCase())) {
+                                            result.remove();
+                                        }
+                                    });
+                                });
+
+                                // 移除删除按钮
+                                deleteButton.remove();
+                            });
+                        }
+                    } else if (deleteButton && !document.querySelector('.tag-search-result.selected')) {
+                        deleteButton.remove();
+                    }
+                });
+                
+                tagSearchResults.appendChild(tagElement);
+            });
+        });
+
+        // 移除标签函数
+        function removeTag(tagToRemove) {
+            document.querySelectorAll('.tag-element').forEach(tag => {
+                if (tag.textContent.trim() === tagToRemove) {
+                    tag.remove();
+                }
+            });
+        }
     </script>
 </body>
 </html>
