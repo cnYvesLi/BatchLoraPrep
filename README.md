@@ -16,7 +16,7 @@
 1. 克隆项目到本地：
 ```bash
 git clone https://github.com/cnYvesLi/BatchLoraPrep.git
-cd image-preprocessing
+cd BatchLoraPrep
 ```
 
 2. 创建并激活虚拟环境（推荐）：
