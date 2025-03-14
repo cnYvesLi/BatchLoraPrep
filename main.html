@@ -235,6 +235,13 @@
         <div>
             <label for="sizeInput" class="input-label">目标尺寸</label>
             <input type="number" id="sizeInput" class="size-input" value="768" placeholder="目标尺寸">
+            <div class="model-container">
+                <label for="modelSelect" class="input-label">选择模型</label>
+                <select id="modelSelect" class="model-select">
+                    <option value="wd-v1-4-convnext-tagger-v2">ConvNext Tagger V2</option>
+                    <option value="wd-vit-tagger-v3">ViT Tagger V3</option>
+                </select>
+            </div>
             <div class="threshold-container">
                 <div class="threshold-group">
                     <label for="threshold" class="input-label">普通标签阈值</label>
@@ -258,6 +265,17 @@
                     padding: 15px;
                     margin: 15px 0;
                     background-color: #f8f9fa;
+                }
+                .model-container {
+                    margin: 15px 0;
+                }
+                .model-select {
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    background-color: white;
+                    font-size: 1rem;
                 }
                 .threshold-group {
                     margin-bottom: 15px;
@@ -448,7 +466,8 @@
     </style>
 
     <script>
-        const dropArea = document.getElementById('dropArea');
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.getElementById('dropArea');
         const fileInput = document.getElementById('fileInput');
         const fileList = document.getElementById('fileList');
 
@@ -565,6 +584,7 @@
                 
                 const folderInfo = document.createElement('div');
                 folderInfo.className = 'folder-info';
+                folderInfo.style.cursor = 'pointer';
                 
                 const folderName = document.createElement('div');
                 folderName.className = 'folder-name';
@@ -579,11 +599,72 @@
                 deleteButton.textContent = '删除文件夹';
                 deleteButton.onclick = clearUpload;
                 
+                // 创建图片预览容器
+                const imagesContainer = document.createElement('div');
+                imagesContainer.className = 'folder-images';
+                imagesContainer.style.display = 'none';
+                imagesContainer.style.marginTop = '1rem';
+                imagesContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
+                imagesContainer.style.gap = '1rem';
+                
+                // 添加点击事件以展开/折叠图片预览
+                folderInfo.onclick = () => {
+                    const isExpanded = imagesContainer.style.display !== 'none';
+                    imagesContainer.style.display = isExpanded ? 'none' : 'grid';
+                };
+                
                 folderInfo.appendChild(folderName);
                 folderInfo.appendChild(folderStats);
                 folderPreview.appendChild(folderInfo);
                 folderPreview.appendChild(deleteButton);
+                folderPreview.appendChild(imagesContainer);
                 fileList.appendChild(folderPreview);
+                
+                // 存储图片容器引用以供后续使用
+                window.currentImagesContainer = imagesContainer;
+            }
+            
+            // 为每个图片创建预览
+            if (window.currentImagesContainer) {
+                const imageWrapper = document.createElement('div');
+                imageWrapper.style.position = 'relative';
+                
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.style.width = '100%';
+                img.style.height = 'auto';
+                img.style.borderRadius = '4px';
+                
+                const deleteImageBtn = document.createElement('button');
+                deleteImageBtn.textContent = '×';
+                deleteImageBtn.style.position = 'absolute';
+                deleteImageBtn.style.top = '5px';
+                deleteImageBtn.style.right = '5px';
+                deleteImageBtn.style.background = 'rgba(255, 0, 0, 0.7)';
+                deleteImageBtn.style.color = 'white';
+                deleteImageBtn.style.border = 'none';
+                deleteImageBtn.style.borderRadius = '50%';
+                deleteImageBtn.style.width = '24px';
+                deleteImageBtn.style.height = '24px';
+                deleteImageBtn.style.cursor = 'pointer';
+                deleteImageBtn.style.display = 'none';
+                
+                // 显示/隐藏删除按钮
+                imageWrapper.onmouseenter = () => deleteImageBtn.style.display = 'block';
+                imageWrapper.onmouseleave = () => deleteImageBtn.style.display = 'none';
+                
+                // 删除图片
+                deleteImageBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    imageWrapper.remove();
+                    URL.revokeObjectURL(img.src);
+                    fileCount--;
+                    document.getElementById('folder-stats').textContent = `${fileCount} 个图片文件`;
+                };
+                
+                imageWrapper.appendChild(img);
+                imageWrapper.appendChild(deleteImageBtn);
+                window.currentImagesContainer.appendChild(imageWrapper);
             }
             
             fileCount++;
@@ -1184,6 +1265,49 @@
         // 添加处理按钮事件监听
         document.getElementById('processButton').addEventListener('click', processAllImages);
 
+        // 添加模型切换的处理函数
+        const modelSelect = document.getElementById('modelSelect');
+        modelSelect.addEventListener('change', async function() {
+            try {
+                const formData = new FormData();
+                formData.append('model', this.value);
+
+                const response = await fetch('/api/change-model', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message);
+                } else {
+                    showToast('切换模型失败：' + (result.error || '未知错误'));
+                }
+            } catch (error) {
+                console.error('切换模型时出错:', error);
+                showToast('切换模型失败：' + error.message);
+            }
+        });
+
+        // 添加显示提示消息的函数
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'success-toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
         // 标签搜索功能
         const tagSearchInput = document.getElementById('tagSearchInput');
         const tagSearchResults = document.getElementById('tagSearchResults');
@@ -1299,6 +1423,7 @@
                 }
             });
         }
+    });
     </script>
 </body>
 </html>

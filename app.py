@@ -19,11 +19,35 @@ class ImageTagger:
         self.session = None
         self.modelLoaded = False
         self.tags = []
+        self.current_model = 'wd-v1-4-convnext-tagger-v2'
+        self.models_config = {
+            'wd-v1-4-convnext-tagger-v2': {
+                'model_path': 'models/wd-v1-4-convnext-tagger-v2.onnx',
+                'csv_path': 'models/wd-v1-4-convnext-tagger-v2.csv',
+                'input_name': 'input_1:0'
+            },
+            'wd-vit-tagger-v3': {
+                'model_path': 'models/wd-vit-tagger-v3.onnx',
+                'csv_path': 'models/wd-vit-tagger-v3.csv',
+                'input_name': 'input'
+            }
+        }
 
-    def load_model(self):
+    def load_model(self, model_name=None):
         try:
-            model_path = 'models/wd-vit-tagger-v3.onnx'
-            csv_path = 'models/wd-vit-tagger-v3.csv'
+            if model_name:
+                self.current_model = model_name
+
+            if self.current_model not in self.models_config:
+                raise ValueError(f'不支持的模型: {self.current_model}')
+
+            config = self.models_config[self.current_model]
+            model_path = config['model_path']
+            csv_path = config['csv_path']
+
+            if not os.path.exists(model_path) or not os.path.exists(csv_path):
+                raise FileNotFoundError(f'模型文件或标签文件不存在: {model_path}, {csv_path}')
+
             self.model = ort.InferenceSession(model_path)
             
             # 加载标签映射文件
@@ -38,9 +62,9 @@ class ImageTagger:
                         self.tag_categories.append(row[2] if len(row) > 2 else '0')  # 第三列是标签类别
             
             self.modelLoaded = True
-            print('Model and tags loaded successfully')
+            print(f'成功加载模型 {self.current_model}')
         except Exception as error:
-            print('Error loading model or tags:', error)
+            print('加载模型或标签时出错:', error)
             raise error
 
     def preprocess_image(self, image):
@@ -81,7 +105,8 @@ class ImageTagger:
             # 预处理图片
             input_tensor = self.preprocess_image(image_data)
             # 运行推理
-            outputs = self.model.run(None, {'input': input_tensor})
+            input_name = self.models_config[self.current_model]['input_name']
+            outputs = self.model.run(None, {input_name: input_tensor})
             probs = outputs[0][0]
 
             # 获取高于阈值的标签
@@ -151,6 +176,18 @@ def generate_tags():
         character_threshold = float(request.form.get('character_threshold', 0.85))
         tags = tagger.generate_tags(image, threshold=threshold, character_threshold=character_threshold)
         return jsonify({'tags': tags})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/change-model', methods=['POST'])
+def change_model():
+    try:
+        model_name = request.form.get('model')
+        if not model_name:
+            return jsonify({'error': '未提供模型名称'}), 400
+        
+        tagger.load_model(model_name)
+        return jsonify({'success': True, 'message': f'已切换到模型: {model_name}'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
